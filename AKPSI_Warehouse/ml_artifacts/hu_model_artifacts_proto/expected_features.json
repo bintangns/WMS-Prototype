@@ -1,0 +1,26 @@
+{
+  "feature_order": [
+    "cnt_chemical",
+    "cnt_electronics",
+    "cnt_fragile",
+    "cnt_frozen",
+    "cnt_liquid",
+    "cnt_luxury",
+    "cnt_neutral",
+    "cnt_voucher",
+    "n_items",
+    "distance_km",
+    "max_L",
+    "max_W",
+    "max_H",
+    "sum_L",
+    "sum_W",
+    "sum_H",
+    "sum_vol",
+    "max_weight",
+    "sum_weight",
+    "eff_L",
+    "eff_W",
+    "eff_H"
+  ]
+}
