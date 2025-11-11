@@ -9,6 +9,12 @@ class HUItemInSerializer(serializers.Serializer):
     qty = serializers.IntegerField(min_value=1)
     barcode = serializers.CharField(required=False, allow_blank=True, default="")
 
+    category = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    length_cm = serializers.FloatField(required=False, allow_null=True)
+    width_cm = serializers.FloatField(required=False, allow_null=True)
+    height_cm = serializers.FloatField(required=False, allow_null=True)
+    weight_g = serializers.FloatField(required=False, allow_null=True)
+
 # ====== ADMIN: assign HU + items langsung ======
 class HUAssignSerializer(serializers.Serializer):
     hu_code = serializers.CharField()
@@ -17,9 +23,21 @@ class HUAssignSerializer(serializers.Serializer):
 
 # ====== OUTPUT HU detail ======
 class HUItemOutSerializer(serializers.ModelSerializer):
+    volume_cm3 = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = HandlingUnitItem
-        fields = ("id", "line_no", "sku", "name", "qty", "barcode", "verified", "verified_by", "verified_at")
+        fields = (
+            "id", "line_no", "sku", "name", "qty", "barcode",
+            "verified", "verified_by", "verified_at",
+            "category", "length_cm", "width_cm", "height_cm", "weight_g",
+            "volume_cm3",
+        )
+
+    def get_volume_cm3(self, obj):
+        v = getattr(obj, "volume_cm3", None)
+        return float(v) if v is not None else None
+
 
 class HUDetailSerializer(serializers.ModelSerializer):
     items = HUItemOutSerializer(many=True, read_only=True)
@@ -35,6 +53,12 @@ class VerifyItemSerializer(serializers.Serializer):
     barcode = serializers.CharField(required=False, allow_blank=True)
     qty_verified = serializers.IntegerField(required=False, min_value=1)
 
+    category  = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    length_cm = serializers.FloatField(required=False, allow_null=True)
+    width_cm  = serializers.FloatField(required=False, allow_null=True)
+    height_cm = serializers.FloatField(required=False, allow_null=True)
+    weight_g  = serializers.FloatField(required=False, allow_null=True)
+
 # ====== ADMIN: HU kosong ======
 class HUEmptyCreateSerializer(serializers.Serializer):
     hu_code = serializers.CharField()
@@ -47,10 +71,16 @@ class ItemPoolCreateSerializer(serializers.Serializer):
     qty = serializers.IntegerField(min_value=1)
     barcode = serializers.CharField(required=False, allow_blank=True, default="")
 
+    category = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    length_cm = serializers.FloatField(required=False, allow_null=True)
+    width_cm = serializers.FloatField(required=False, allow_null=True)
+    height_cm = serializers.FloatField(required=False, allow_null=True)
+    weight_g = serializers.FloatField(required=False, allow_null=True)
+
 class ItemPoolListSerializer(serializers.ModelSerializer):
     class Meta:
         model = HandlingUnitItem
-        fields = ("id", "hu", "line_no", "sku", "name", "qty", "barcode", "verified")
+        fields = ("id", "hu", "line_no", "sku", "name", "qty", "barcode", "verified","category", "length_cm", "width_cm", "height_cm", "weight_g",)
 
 # ====== ADMIN: assign/unassign pool -> HU ======
 class AssignItemsSerializer(serializers.Serializer):

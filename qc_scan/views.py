@@ -1,9 +1,12 @@
 from django.db import transaction, models
-from django.utils import timezone
-from rest_framework import permissions, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.views import APIView
+from rest_framework import permissions
+from rest_framework.response import Response
+from django.utils import timezone
+from .models import HandlingUnit, HandlingUnitItem
+import pandas as pd
+from .ml_service import recommend_box_with_wrap
 
 from core.models import Client
 from auth.models import WorkstationSession, Workstation, User
@@ -61,6 +64,11 @@ class ItemPoolCreateView(APIView):
             name=s.validated_data["name"],
             qty=s.validated_data["qty"],
             barcode=s.validated_data.get("barcode", ""),
+            category=s.validated_data.get("category"),
+            length_cm=s.validated_data.get("length_cm"),
+            width_cm=s.validated_data.get("width_cm"),
+            height_cm=s.validated_data.get("height_cm"),
+            weight_g=s.validated_data.get("weight_g"),
         )
         return Response({
             "status": "success",
@@ -109,7 +117,12 @@ class HUAssignView(APIView):
                 sku=it["sku"],
                 name=it["name"],
                 qty=it["qty"],
-                barcode=it.get("barcode", "")
+                barcode=it.get("barcode", ""),
+                category=it.get("category"),
+                length_cm=it.get("length_cm"),
+                width_cm=it.get("width_cm"),
+                height_cm=it.get("height_cm"),
+                weight_g=it.get("weight_g"),
             )
             for it in items
         ])
@@ -331,6 +344,10 @@ class VerifyItemView(APIView):
         if not item:
             return Response({"error": "Item tidak ditemukan pada HU (periksa line_no/sku/barcode)."}, status=404)
 
+        for fld in ["category", "length_cm", "width_cm", "height_cm", "weight_g"]:
+            if fld in s.validated_data and s.validated_data.get(fld) is not None:
+                setattr(item, fld, s.validated_data[fld])
+
         if item.verified:
             return Response({"message": "Item sudah terverifikasi."}, status=200)
 
@@ -380,3 +397,50 @@ class HUDetailByCodeView(APIView):
         except HandlingUnit.DoesNotExist:
             return Response({"detail": "Handling Unit tidak ditemukan."}, status=404)
         return Response(HUDetailSerializer(hu).data, status=200)
+
+class RecommendBoxView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        hu_code = (request.data.get("hu_code") or "").strip()
+        if not hu_code:
+            return Response({"hu_code": "Wajib diisi."}, status=400)
+
+        try:
+            hu = HandlingUnit.objects.select_related("client").get(hu_code=hu_code)
+        except HandlingUnit.DoesNotExist:
+            return Response({"detail": "Handling Unit tidak ditemukan."}, status=404)
+
+        items = list(HandlingUnitItem.objects.filter(hu=hu).values(
+            "id","category","length_cm","width_cm","height_cm","weight_g"
+        ))
+        if not items:
+            return Response({"detail": "HU belum punya item."}, status=400)
+
+        # validasi minimal fitur
+        for it in items:
+            if not all([it["length_cm"], it["width_cm"], it["height_cm"]]):
+                return Response({"detail": "Beberapa item belum memiliki dimensi untuk rekomendasi."}, status=400)
+
+        # bentuk dataframe fitur untuk model
+        rows = []
+        for it in items:
+            L,W,H = it["length_cm"], it["width_cm"], it["height_cm"]
+            rows.append({
+                "item_id": it["id"],
+                "client_name": hu.client.name,
+                "category": it["category"] or "Neutral",
+                "distance_km": getattr(hu, "distance_km", 25.0),
+                "item_length_cm": L,
+                "item_width_cm": W,
+                "item_height_cm": H,
+                "item_weight_g": it["weight_g"] or 0.0,
+                "item_volume_cm3": L*W*H,
+            })
+        df = pd.DataFrame(rows)
+
+        out = recommend_box_with_wrap(df)
+        return Response({
+            "client_name": hu.client.name,
+            **out
+        }, status=200)

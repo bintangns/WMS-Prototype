@@ -51,6 +51,10 @@ REST_FRAMEWORK = {
     # "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",)
 }
 
+HU_MODEL_DIR = (
+    BASE_DIR / "AKPSI_Warehouse" / "ml_artifacts" / "hu_model_artifacts_proto"
+)
+
 AUTH_USER_MODEL = "custom_auth.User"
 
 from datetime import timedelta

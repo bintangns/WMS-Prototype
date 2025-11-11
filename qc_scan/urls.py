@@ -5,7 +5,7 @@ from .views import (
     HUAssignView, AssignItemsToHUView, UnassignItemsFromHUView,
     # PACKER
     HandlingUnitScanView, VerifyItemView,
-    HUDetailByCodeView,
+    HUDetailByCodeView, RecommendBoxView
 )
 
 urlpatterns = [
@@ -23,4 +23,6 @@ urlpatterns = [
 
     # ===== COMMON =====
     path("hu/<str:hu_code>/", HUDetailByCodeView.as_view(), name="hu_detail_by_code"),
+
+    path("recommend-box/", RecommendBoxView.as_view(), name="qc_recommend_box"),
 ]

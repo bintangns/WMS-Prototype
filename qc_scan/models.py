@@ -46,6 +46,18 @@ class HandlingUnitItem(models.Model):
     verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="verified_items")
     verified_at = models.DateTimeField(null=True, blank=True)
 
+    category = models.CharField(max_length=30, blank=True, null=True)  # 'Fragile','Liquid',dst.
+    length_cm = models.FloatField(blank=True, null=True)
+    width_cm = models.FloatField(blank=True, null=True)
+    height_cm = models.FloatField(blank=True, null=True)
+    weight_g = models.FloatField(blank=True, null=True)
+
+    @property
+    def volume_cm3(self):
+        if self.length_cm and self.width_cm and self.height_cm:
+            return self.length_cm * self.width_cm * self.height_cm
+        return None
+
     class Meta:
         ordering = ["hu_id", "line_no", "id"]
         constraints = [
