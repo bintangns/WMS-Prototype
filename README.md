@@ -1,97 +1,107 @@
-📦 AKPSI WMS – Admin & QC API Documentation
+# 📦 AKPSI WMS – Admin & QC API Documentation
+_Updated: November 2025_
 
-Updated: November 2025
+Prototype Warehouse Management System (WMS) built with **Django REST Framework**, integrated with **Machine Learning Box Recommendation** and **Go Lite IoT Bridge**.
 
-Prototype Warehouse Management System (WMS) built with Django REST Framework, integrated with Machine Learning Box Recommendation and Go Lite IoT Bridge.
+---
 
-🔐 Authentication
+## 🔐 Authentication
+Semua endpoint (kecuali `/auth/token/` dan `/auth/register/`) membutuhkan **Bearer JWT Token** di header:
 
-Semua endpoint (kecuali /auth/token/ dan /auth/register/) membutuhkan Bearer JWT Token di header:
-
+```
 Authorization: Bearer <access_token>
+```
 
-1️⃣ Obtain JWT Token (Admin)
+### 1️⃣ Obtain JWT Token (Admin)
+`POST /auth/token/`
 
-POST /auth/token/
-
-Request
-
+**Request**
+```json
 {
   "username": "admin",
   "password": "adminpass"
 }
+```
 
-
-Response
-
+**Response**
+```json
 {
   "refresh": "<refresh_token>",
   "access": "<access_token>"
 }
+```
 
-🧍‍♂️ Auth Management
-Register Workstation
+---
 
-POST /auth/register-workstation/
+## 🧍‍♂️ Auth Management
 
+### Register Workstation
+`POST /auth/register-workstation/`
+```json
 {
   "workstation_id": "WS01",
   "description": "Packing Station 01"
 }
+```
 
-Register Packer User
-
-POST /auth/register/
-
+### Register Packer User
+`POST /auth/register/`
+```json
 {
   "username": "packer01",
   "password": "12345",
   "email": "packer01@example.com"
 }
+```
 
-Workstation Login (Packer)
-
-POST /auth/workstation-login/
-
+### Workstation Login (Packer)
+`POST /auth/workstation-login/`
+```json
 {
   "username": "packer01",
   "password": "12345",
   "workstation_id": "WS01"
 }
+```
 
-🧾 Core – Client Management
-Create Client
+---
 
-POST /core/clients/
+## 🧾 Core – Client Management
 
+### Create Client
+`POST /core/clients/`
+```json
 {
   "name": "Client Alpha",
   "code": "CLA"
 }
+```
 
-
-Response
-
+**Response**
+```json
 {
   "id": 1,
   "name": "Client Alpha",
   "code": "CLA"
 }
+```
 
-🧱 QC Admin – Handling Unit & Item Pool
-Create Empty HU
+---
 
-POST /api/qc/admin/hu-empty/
+## 🧱 QC Admin – Handling Unit & Item Pool
 
+### Create Empty HU
+`POST /api/qc/admin/hu-empty/`
+```json
 {
   "hu_code": "HU-CLA-0001",
   "client_id": 1
 }
+```
 
-Create Item Pool (Unassigned)
-
-POST /api/qc/admin/item-pool/create/
-
+### Create Item Pool (Unassigned)
+`POST /api/qc/admin/item-pool/create/`
+```json
 {
   "sku": "CLA-001",
   "name": "Gelas 250ml",
@@ -103,49 +113,51 @@ POST /api/qc/admin/item-pool/create/
   "height_cm": 8,
   "weight_g": 300
 }
+```
 
-List Item Pool
+### List Item Pool
+`GET /api/qc/admin/item-pool/list/`
 
-GET /api/qc/admin/item-pool/list/
-
-Assign Items to HU
-
-POST /api/qc/admin/assign-items/
-
+### Assign Items to HU
+`POST /api/qc/admin/assign-items/`
+```json
 {
   "hu_code": "HU-CLA-0001",
   "skus": ["CLA-001", "CLA-002"],
   "auto_line": true
 }
+```
 
-⚙️ QC – Packer Operations
-Scan HU (Assign to Session)
+---
 
-POST /api/qc/scan-hu/
+## ⚙️ QC – Packer Operations
 
+### Scan HU (Assign to Session)
+`POST /api/qc/scan-hu/`
+```json
 {
   "handling_unit_code": "HU-CLA-0001",
   "username": "packer01",
   "workstation_id": "WS01"
 }
+```
 
-Verify Item (By Barcode)
-
-POST /api/qc/verify-item/
-
+### Verify Item (By Barcode)
+`POST /api/qc/verify-item/`
+```json
 {
   "hu_code": "HU-CLA-0001",
   "barcode": "899000001",
   "username": "packer01",
   "workstation_id": "WS01"
 }
+```
 
-Get HU Detail
+### Get HU Detail
+`GET /api/qc/hu/HU-CLA-0001/`
 
-GET /api/qc/hu/HU-CLA-0001/
-
-Response
-
+**Response**
+```json
 {
   "id": 2,
   "hu_code": "HU-CLA-0001",
@@ -164,24 +176,77 @@ Response
     }
   ]
 }
+```
 
-🤖 Machine Learning – Box Recommendation
-Recommend Box (ML Prediction)
+---
 
-POST /api/qc/recommend-box/
+## 🤖 Machine Learning – Box Recommendation
 
-Request
+### Recommend Box (ML Prediction)
+`POST /api/qc/recommend-box/`
 
+**Request**
+```json
 {
   "hu_code": "HU-GDN-0001"
 }
+```
 
-
-Response
-
+**Response**
+```json
 {
   "client_name": "BLIBLI",
   "container_code": "010",
   "need_bubble_wrap": false,
   "bubble_wrap_items": []
 }
+```
+
+---
+
+## 🌐 Go Lite IoT Integration
+
+### Automatic Push (Triggered after ML prediction)
+Every successful `/api/qc/recommend-box/` call triggers:
+
+#### 1️⃣ MQTT Publish
+**Broker:** `mqtt.goliteiot.com:1883`  
+**Topic Pattern:** `wms/{client}/{hu}/reco`  
+
+**Payload Example**
+```json
+{
+  "event": "box_recommendation",
+  "ts": 1731438000,
+  "hu_code": "HU-GDN-0001",
+  "client_name": "BLIBLI",
+  "container_code": "010",
+  "need_bubble_wrap": false,
+  "bubble_wrap_items": [],
+  "items_count": 4
+}
+```
+
+## 🧩 Directory Structure (simplified)
+```
+AKPSI_Warehouse/
+├── qc_scan/
+│   ├── views.py
+│   ├── ml_service.py          # ML inference logic
+│   ├── golite_bridge.py       # MQTT + HTTPS bridge
+│   └── serializers.py
+├── AKPSI_Warehouse/settings.py
+└── ml_artifacts/
+    ├── rf_container_code.joblib
+    ├── expected_features.json
+    └── catalog.json
+```
+
+---
+
+## 🧭 Postman Collection
+Full collection included in repository:
+```
+AKPSI WMS API.json
+```
+Import to Postman to test all endpoints sequentially.
