@@ -4,7 +4,6 @@ from rest_framework.views import APIView
 from rest_framework import permissions
 from rest_framework.response import Response
 from django.utils import timezone
-from .models import HandlingUnit, HandlingUnitItem
 import pandas as pd
 from .ml_service import recommend_box_with_wrap
 
