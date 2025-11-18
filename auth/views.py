@@ -1,19 +1,21 @@
 # auth/views.py
 
 from django.utils import timezone
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
+from activitylog.utils import log_activity
 
+from .models import WorkstationSession, Workstation
 from .serializers import (
     WorkstationLoginSerializer,
     RegisterSerializer,
 )
-from .models import WorkstationSession, Workstation, User
 from .token import WmsTokenObtainPairSerializer
+
 
 # ========================
 # JWT Login User
@@ -71,6 +73,19 @@ class WorkstationLoginView(APIView):
         refresh["workstation"] = ws.workstation_id
         refresh["roles"] = list(user.roles.values_list("name", flat=True))
 
+        log_activity(
+            request,
+            action="workstation_login",
+            user=user,
+            workstation=ws,
+            extra={
+                "session_id": session.id,
+                "workstation_id": ws.workstation_id,
+                "username": user.username,
+            },
+            status_code=status.HTTP_200_OK,
+        )
+
         return Response({
             "status": "success",
             "message": f"Workstation {ws.workstation_id} berhasil didaftarkan.",
@@ -90,6 +105,14 @@ class WorkstationLogoutView(APIView):
         updated = WorkstationSession.objects.filter(
             picker=user, is_active=True
         ).update(is_active=False, logout_time=timezone.now())
+
+        log_activity(
+            request,
+            action="workstation_logout",
+            user=user,
+            extra={"closed_sessions": updated},
+            status_code=200,
+        )
 
         # (opsional) blacklist refresh kalau dikirim
         refresh_token = request.data.get("refresh")

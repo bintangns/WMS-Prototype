@@ -10,6 +10,9 @@ from .ml_service import recommend_box_with_wrap
 from core.models import Client
 from auth.models import WorkstationSession, Workstation, User
 from .models import HandlingUnit, HandlingUnitItem
+
+from activitylog.utils import log_activity
+
 from .serializers import (
     HUAssignSerializer, HUDetailSerializer, VerifyItemSerializer,
     HUEmptyCreateSerializer, ItemPoolCreateSerializer, ItemPoolListSerializer,
@@ -361,6 +364,22 @@ class VerifyItemView(APIView):
             hu.status = "verified"
             hu.save(update_fields=["status"])
 
+        log_activity(
+            request,
+            action="verify_item",
+            user=user,
+            workstation=ws,
+            extra={
+                "hu_code": hu.hu_code,
+                "item_id": item.id,
+                "line_no": item.line_no,
+                "sku": item.sku,
+                "barcode": item.barcode,
+                "hu_status": hu.status,
+            },
+            status_code=200,
+        )
+
         return Response({
             "status": "success",
             "message": "Item diverifikasi",
@@ -439,6 +458,20 @@ class RecommendBoxView(APIView):
         df = pd.DataFrame(rows)
 
         out = recommend_box_with_wrap(df)
+
+        log_activity(
+            request,
+            action="recommend_box",
+            user=request.user if request.user.is_authenticated else None,
+            workstation=None,
+            extra={
+                "hu_code": hu.hu_code,
+                "client": hu.client.code if hu.client else None,
+                "item_count": len(items),
+            },
+            status_code=200,
+        )
+
         return Response({
             "client_name": hu.client.name,
             **out

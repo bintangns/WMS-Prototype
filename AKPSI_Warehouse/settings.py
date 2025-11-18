@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "auth.apps.AuthConfig",
     "core.apps.CoreConfig",
-    "qc_scan.apps.QcScanConfig"
+    "qc_scan.apps.QcScanConfig",
+    "activitylog"
 ]
 
 REST_FRAMEWORK = {
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'activitylog.middleware.ActivityLoggingMiddleware'
 ]
 
 ROOT_URLCONF = 'AKPSI_Warehouse.urls'
