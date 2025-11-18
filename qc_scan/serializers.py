@@ -93,3 +93,5 @@ class AssignItemsSerializer(serializers.Serializer):
 
 class UnassignItemsSerializer(serializers.Serializer):
     item_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+
+

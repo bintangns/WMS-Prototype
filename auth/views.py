@@ -1,7 +1,7 @@
 # auth/views.py
 
 from django.utils import timezone
-from rest_framework import status, permissions
+from rest_framework import status, permissions, generics
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +13,9 @@ from .models import WorkstationSession, Workstation
 from .serializers import (
     WorkstationLoginSerializer,
     RegisterSerializer,
+    AssignWorkstationSerializer,
+    PackerLoginSerializer,
+    WorkstationSerializer,
 )
 from .token import WmsTokenObtainPairSerializer
 
@@ -146,3 +149,57 @@ class RegisterWorkstationView(APIView):
             "message": f"Workstation {ws.workstation_id} berhasil dibuat",
             "workstation_id": ws.workstation_id
         }, status=201)
+
+class PackerLoginView(APIView):
+    """
+    Login packer hanya dengan username + password.
+    Workstation dipilih belakangan.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PackerLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(
+            {
+                "status": "success",
+                "message": "Login berhasil.",
+                **data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+class WorkstationListView(generics.ListAPIView):
+    """
+    Mengembalikan daftar workstation.
+    Bisa dipakai untuk dropdown di frontend.
+    """
+    queryset = Workstation.objects.all().order_by("workstation_id")
+    serializer_class = WorkstationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class AssignWorkstationView(APIView):
+    """
+    Assign workstation ke packer yang sudah login.
+    - wajib Authorization: Bearer <access_token>
+    - body minimal: { "workstation_id": "WS01" }
+    - optional: { "packer_username": "packer01" } kalau mau assign user lain
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = AssignWorkstationSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.save()
+        return Response(
+            {
+                "status": "success",
+                "message": "Workstation berhasil di-assign.",
+                "data": data,
+            },
+            status=status.HTTP_200_OK,
+        )

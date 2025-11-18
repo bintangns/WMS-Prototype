@@ -107,3 +107,108 @@ class WorkstationLoginSerializer(serializers.Serializer):
         data["user"] = user
         data["workstation"] = workstation
         return data
+
+class PackerLoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        username = attrs.get("username")
+        password = attrs.get("password")
+
+        user = authenticate(username=username, password=password)
+        if not user:
+            raise serializers.ValidationError("Username atau password salah.")
+
+        if not user.is_active:
+            raise serializers.ValidationError("Akun tidak aktif.")
+
+        # Opsional: pastikan dia punya role PACKER
+        # if not user.roles.filter(name="PACKER").exists():
+        #     raise serializers.ValidationError("User ini bukan Packer.")
+
+        attrs["user"] = user
+        return attrs
+
+    def create(self, validated_data):
+        user = validated_data["user"]
+        refresh = RefreshToken.for_user(user)
+
+        # Kalau di proyek lama kamu ada roles:
+        try:
+            refresh["roles"] = list(user.roles.values_list("name", flat=True))
+        except Exception:
+            refresh["roles"] = []
+
+        return {
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "full_name": getattr(user, "full_name", user.username),
+            },
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+        }
+
+class WorkstationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Workstation
+        fields = [
+            "id",
+            "workstation_id",
+            "area",
+            "description",
+            "is_active",
+            # kalau mau tampilkan waktu dibuat juga:
+            # "created_at",
+        ]
+
+class AssignWorkstationSerializer(serializers.Serializer):
+    workstation_id = serializers.CharField()
+    # Optional: kalau mau pakai username/packer id eksplisit
+    packer_username = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        ws_id = attrs.get("workstation_id")
+        try:
+            workstation = Workstation.objects.get(workstation_id=ws_id)
+        except Workstation.DoesNotExist:
+            raise serializers.ValidationError(
+                {"workstation_id": "Workstation tidak ditemukan."}
+            )
+
+        attrs["workstation"] = workstation
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        user = request.user
+
+        # Kalau mau pakai packer_username eksplisit:
+        packer_username = validated_data.get("packer_username")
+        if packer_username:
+            try:
+                user = User.objects.get(username=packer_username)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"packer_username": "Packer / username tidak ditemukan."}
+                )
+
+        workstation = validated_data["workstation"]
+
+        # Tutup semua sesi aktif packer ini dulu (opsional tapi rapi)
+        WorkstationSession.objects.filter(
+            picker=user, is_active=True
+        ).update(is_active=False)
+
+        session = WorkstationSession.objects.create(
+            picker=user,
+            workstation=workstation,
+            is_active=True,
+        )
+
+        return {
+            "session_id": session.id,
+            "workstation_id": workstation.workstation_id,
+            "packer_username": user.username,
+        }

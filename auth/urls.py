@@ -5,7 +5,10 @@ from .views import (
     RegisterView,
     WorkstationLoginView,
     WorkstationLogoutView,
-    RegisterWorkstationView
+    RegisterWorkstationView,
+    PackerLoginView,
+    WorkstationListView,
+    AssignWorkstationView
 )
 
 urlpatterns = [
@@ -18,5 +21,8 @@ urlpatterns = [
     # Workstation flow
     path("workstation-login/", WorkstationLoginView.as_view(), name="workstation-login"),
     path("workstation-logout/", WorkstationLogoutView.as_view(), name="workstation-logout"),
-    path("register-workstation/", RegisterWorkstationView.as_view(), name="register_workstation")
+    path("register-workstation/", RegisterWorkstationView.as_view(), name="register_workstation"),
+    path("packer-login/", PackerLoginView.as_view(), name="packer-login"),
+    path("workstations/", WorkstationListView.as_view(), name="workstation-list"),
+    path("assign-workstation/", AssignWorkstationView.as_view(), name="assign-workstation"),
 ]
