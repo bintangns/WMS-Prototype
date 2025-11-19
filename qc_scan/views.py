@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 import pandas as pd
 from .ml_service import recommend_box_with_wrap
-
+from .box_catalog import get_box_spec
 from core.models import Client
 from auth.models import WorkstationSession, Workstation, User
 from .models import HandlingUnit, HandlingUnitItem
@@ -429,35 +429,42 @@ class RecommendBoxView(APIView):
         except HandlingUnit.DoesNotExist:
             return Response({"detail": "Handling Unit tidak ditemukan."}, status=404)
 
-        items = list(HandlingUnitItem.objects.filter(hu=hu).values(
-            "id","category","length_cm","width_cm","height_cm","weight_g"
-        ))
+        items = list(
+            HandlingUnitItem.objects.filter(hu=hu).values(
+                "id", "category", "length_cm", "width_cm", "height_cm", "weight_g"
+            )
+        )
         if not items:
             return Response({"detail": "HU belum punya item."}, status=400)
 
-        # validasi minimal fitur
         for it in items:
             if not all([it["length_cm"], it["width_cm"], it["height_cm"]]):
-                return Response({"detail": "Beberapa item belum memiliki dimensi untuk rekomendasi."}, status=400)
+                return Response(
+                    {"detail": "Beberapa item belum memiliki dimensi untuk rekomendasi."},
+                    status=400,
+                )
 
-        # bentuk dataframe fitur untuk model
         rows = []
         for it in items:
-            L,W,H = it["length_cm"], it["width_cm"], it["height_cm"]
-            rows.append({
-                "item_id": it["id"],
-                "client_name": hu.client.name,
-                "category": it["category"] or "Neutral",
-                "distance_km": getattr(hu, "distance_km", 25.0),
-                "item_length_cm": L,
-                "item_width_cm": W,
-                "item_height_cm": H,
-                "item_weight_g": it["weight_g"] or 0.0,
-                "item_volume_cm3": L*W*H,
-            })
+            L, W, H = it["length_cm"], it["width_cm"], it["height_cm"]
+            rows.append(
+                {
+                    "item_id": it["id"],
+                    "client_name": hu.client.name,
+                    "category": it["category"] or "Neutral",
+                    "distance_km": getattr(hu, "distance_km", 25.0),
+                    "item_length_cm": L,
+                    "item_width_cm": W,
+                    "item_height_cm": H,
+                    "item_weight_g": it["weight_g"] or 0.0,
+                    "item_volume_cm3": L * W * H,
+                }
+            )
         df = pd.DataFrame(rows)
 
         out = recommend_box_with_wrap(df)
+        box_code = out.get("container_code")
+        box_spec = get_box_spec(box_code)
 
         log_activity(
             request,
@@ -468,11 +475,23 @@ class RecommendBoxView(APIView):
                 "hu_code": hu.hu_code,
                 "client": hu.client.code if hu.client else None,
                 "item_count": len(items),
+                "box_code": box_code,
             },
             status_code=200,
         )
 
-        return Response({
-            "client_name": hu.client.name,
-            **out
-        }, status=200)
+        # Bentuk struktur final yang manis buat frontend
+        response_payload = {
+            "status": "success",
+            "hu_code": hu.hu_code,
+            "client_name": hu.client.name if hu.client else None,
+            "recommendation": {
+                "mode": "auto",  # default
+                "container_code": box_code,
+                "container": box_spec,  # {code, size, weight_g, volume_cm3, type}
+                "need_bubble_wrap": out.get("need_bubble_wrap", False),
+                "bubble_wrap_items": out.get("bubble_wrap_items", []),
+            },
+        }
+
+        return Response(response_payload, status=200)

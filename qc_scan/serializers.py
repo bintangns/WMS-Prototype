@@ -41,9 +41,23 @@ class HUItemOutSerializer(serializers.ModelSerializer):
 
 class HUDetailSerializer(serializers.ModelSerializer):
     items = HUItemOutSerializer(many=True, read_only=True)
+
+    # kirim ID dan nama client sekaligus
+    client_id = serializers.IntegerField(source="client.id", read_only=True)
+    client_name = serializers.CharField(source="client.name", read_only=True)
+
     class Meta:
         model = HandlingUnit
-        fields = ("id", "hu_code", "client", "status", "assigned_packer", "assigned_workstation", "items")
+        fields = (
+            "id",
+            "hu_code",
+            "client_id",          # integer id
+            "client_name",        # nama client (string)
+            "status",
+            "assigned_packer",
+            "assigned_workstation",
+            "items",
+        )
 
 # ====== PACKER: verify item ======
 class VerifyItemSerializer(serializers.Serializer):
@@ -80,7 +94,21 @@ class ItemPoolCreateSerializer(serializers.Serializer):
 class ItemPoolListSerializer(serializers.ModelSerializer):
     class Meta:
         model = HandlingUnitItem
-        fields = ("id", "hu", "line_no", "sku", "name", "qty", "barcode", "verified","category", "length_cm", "width_cm", "height_cm", "weight_g",)
+        fields = (
+            "id",
+            "hu",
+            "line_no",
+            "sku",
+            "name",
+            "qty",
+            "barcode",
+            "verified",
+            "category",
+            "length_cm",
+            "width_cm",
+            "height_cm",
+            "weight_g",
+        )
 
 # ====== ADMIN: assign/unassign pool -> HU ======
 class AssignItemsSerializer(serializers.Serializer):
@@ -92,6 +120,7 @@ class AssignItemsSerializer(serializers.Serializer):
     auto_line = serializers.BooleanField(required=False, default=True)
 
 class UnassignItemsSerializer(serializers.Serializer):
-    item_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
-
-
+    item_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False
+    )
